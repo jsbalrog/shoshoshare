@@ -2,6 +2,8 @@
 
 An AI-powered social media scheduler SaaS platform built with Remix, React, and Tailwind CSS.
 
+[![Deploy to Fly.io](https://img.shields.io/badge/Deploy%20to-Fly.io-blue?logo=fly.io)](https://fly.io)
+
 ## Features
 
 - 📅 Interactive calendar interface for post scheduling
