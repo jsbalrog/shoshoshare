@@ -5,11 +5,12 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import PropTypes from "prop-types";
 
 import "./tailwind.css";
+import Layout from "./components/Layout";
 
-export const links: LinksFunction = () => [
+export const links = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -22,7 +23,7 @@ export const links: LinksFunction = () => [
   },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
@@ -40,6 +41,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+RootLayout.propTypes = {
+  children: PropTypes.node.isRequired
+};
+
 export default function App() {
-  return <Outlet />;
-}
+  return (
+    <RootLayout>
+      <Layout>
+        <Outlet />
+      </Layout>
+    </RootLayout>
+  );
+} 
