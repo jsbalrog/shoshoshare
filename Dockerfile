@@ -32,6 +32,9 @@ ENV PORT=8080
 ENV HOST=0.0.0.0
 ENV DATABASE_URL="file:/app/data/dev.db"
 
+# Generate Prisma Client
+RUN npx prisma generate
+
 # Expose the port
 EXPOSE 8080
 
