@@ -21,6 +21,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl \
     && curl -sSL https://fly.io/install.sh | sh \
+    && ln -s /usr/local/bin/litefs /usr/bin/litefs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
