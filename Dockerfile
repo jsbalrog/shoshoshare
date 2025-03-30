@@ -20,10 +20,12 @@ WORKDIR /app
 # Install LiteFS
 RUN apt-get update && apt-get install -y \
     curl \
-    && curl -L https://github.com/superfly/litefs/releases/latest/download/litefs_linux_amd64.tar.gz | tar -xz \
+    && curl -L -o litefs.tar.gz https://github.com/superfly/litefs/releases/latest/download/litefs_linux_amd64.tar.gz \
+    && tar -xzf litefs.tar.gz \
     && mv litefs /usr/local/bin/ \
     && ln -sf /usr/local/bin/litefs /usr/bin/litefs \
     && litefs version \
+    && rm litefs.tar.gz \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
