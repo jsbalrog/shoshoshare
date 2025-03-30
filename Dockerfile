@@ -20,7 +20,8 @@ WORKDIR /app
 # Install LiteFS
 RUN apt-get update && apt-get install -y \
     curl \
-    && curl -sSL https://fly.io/install.sh | sh \
+    && curl -L https://github.com/superfly/litefs/releases/latest/download/litefs_linux_amd64.tar.gz | tar -xz \
+    && mv litefs /usr/local/bin/ \
     && ln -sf /usr/local/bin/litefs /usr/bin/litefs \
     && litefs version \
     && apt-get clean \
