@@ -18,7 +18,7 @@ FROM node:20-slim AS runner
 WORKDIR /app
 
 # Create data directory for SQLite
-RUN mkdir -p /data
+RUN mkdir -p /app/data
 
 # Copy built assets from builder
 COPY --from=builder /app/build ./build
@@ -30,7 +30,7 @@ COPY --from=builder /app/prisma ./prisma
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOST=0.0.0.0
-ENV DATABASE_URL="file:/data/dev.db"
+ENV DATABASE_URL="file:/app/data/dev.db"
 
 # Expose the port
 EXPOSE 8080
