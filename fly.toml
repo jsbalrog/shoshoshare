@@ -21,6 +21,10 @@ primary_region = "lhr"
   cpus = 1
   memory_mb = 1024
 
+[mounts]
+  source = "data"
+  destination = "/data"
+
 [deploy]
   strategy = "immediate"
   release_command = "npx prisma migrate deploy"
