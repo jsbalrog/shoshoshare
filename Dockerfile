@@ -17,18 +17,6 @@ FROM node:20-slim AS runner
 
 WORKDIR /app
 
-# Install LiteFS
-RUN apt-get update && apt-get install -y \
-    curl \
-    && curl -L -o litefs.tar.gz https://github.com/superfly/litefs/releases/latest/download/litefs_linux_amd64.tar.gz \
-    && tar -xzf litefs.tar.gz \
-    && mv litefs /usr/local/bin/ \
-    && ln -sf /usr/local/bin/litefs /usr/bin/litefs \
-    && litefs version \
-    && rm litefs.tar.gz \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create data directory for SQLite
 RUN mkdir -p /data
 
@@ -47,5 +35,5 @@ ENV DATABASE_URL="file:/data/dev.db"
 # Expose the port
 EXPOSE 8080
 
-# Start LiteFS and the application
-CMD ["sh", "-c", "litefs mount /data & npx prisma migrate deploy && npm start"] 
+# Start the application
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"] 
