@@ -1,4 +1,4 @@
-FROM node:18-slim AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # Production image
-FROM node:18-slim AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 
@@ -36,6 +36,7 @@ COPY --from=builder /app/prisma ./prisma
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV HOST=0.0.0.0
 ENV DATABASE_URL="file:/data/dev.db"
 
 # Expose the port
