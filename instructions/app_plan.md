@@ -194,7 +194,7 @@ Build a SaaS platform enabling small-to-medium businesses and solo entrepreneurs
 
 3. **Prisma and Database Setup**
 
-  a. Install Prisma ORM and initialize schema.
+  a. Install Prisma ORM and initialize schema. Verify schema design and modelsbefore proceeding.
 
   b. Connect SQLite database hosted on Fly.io with LiteFS.
 
@@ -207,9 +207,11 @@ Build a SaaS platform enabling small-to-medium businesses and solo entrepreneurs
 
   a. Implement user authentication with Remix Auth and secure sessions.
 
-  b. Integrate OpenAI API for generating content.
+  b. Integrate OpenAI API for generating content and image generation.
 
   c. Build out more details of Post Creation page (AI content generator, image upload).
+
+  d. Test AI content generation and image generation.
 
   d. Implement Scheduler with calendar view.
 
