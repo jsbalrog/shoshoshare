@@ -194,7 +194,7 @@ Build a SaaS platform enabling small-to-medium businesses and solo entrepreneurs
 
 3. **Prisma and Database Setup**
 
-  a. Install Prisma ORM and initialize schema. Verify schema design and modelsbefore proceeding.
+  a. Install Prisma ORM and initialize schema. Verify schema design and models before proceeding.
 
   b. Connect SQLite database hosted on Fly.io with LiteFS.
 

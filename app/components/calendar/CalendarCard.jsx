@@ -24,13 +24,28 @@ export function CalendarCard({
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{formatMonthYear(currentDate)}</CardTitle>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => onMonthChange(-1)}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onMonthChange(-1)}
+            className="border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
             Previous
           </Button>
-          <Button variant="outline" size="sm" onClick={onTodayClick}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onTodayClick}
+            className="border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
             Today
           </Button>
-          <Button variant="outline" size="sm" onClick={() => onMonthChange(1)}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onMonthChange(1)}
+            className="border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
             Next
           </Button>
         </div>

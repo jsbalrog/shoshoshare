@@ -1,17 +1,43 @@
-import { Link, useNavigate } from "@remix-run/react";
-import { motion } from "framer-motion";
 import { useState } from "react";
+import { Link, useNavigate, useLoaderData } from "@remix-run/react";
+import { motion } from "framer-motion";
 import { Button } from "../components/ui/button";
 import { CalendarCard } from "../components/calendar/CalendarCard";
-import { LegendCard } from "../components/calendar/LegendCard";
 import { CalendarDayDetailsCard } from "../components/calendar/CalendarDayDetailsCard";
+import { LegendCard } from "../components/calendar/LegendCard";
+import { getUserByEmail } from "../lib/models.server";
+import { db } from "../lib/db.server";
 
 export const meta = () => {
   return [
-    { title: "ShoshoShare - Schedule Posts" },
-    { name: "description", content: "Schedule and manage your social media posts" },
+    { title: "ShoshoShare - Schedule" },
+    { name: "description", content: "Schedule your social media posts" },
   ];
 };
+
+export async function loader() {
+  // Temporarily use the first user until we implement authentication
+  const user = await getUserByEmail("test@example.com");
+  console.log("Found user:", user);
+  
+  let posts = [];
+  if (user) {
+    // Get all posts for the user
+    posts = await db.post.findMany({
+      where: { userId: user.id },
+      include: {
+        user: true,
+        engagements: true
+      },
+      orderBy: {
+        scheduledDate: 'asc'
+      }
+    });
+    console.log("Found posts:", posts);
+  }
+
+  return { posts };
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -34,133 +60,78 @@ const itemVariants = {
   }
 };
 
-// Test data - can be removed once real data is implemented
-const getTestPosts = () => {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  // Create time objects for today's post
-  const todayTime = new Date(today);
-  todayTime.setHours(14, 0, 0, 0); // 2:00 PM
-
-  return [
-    { 
-      id: 101, 
-      title: "Behind the scenes at our office", 
-      content: "Take a peek into our daily operations and team culture! #OfficeLife #CompanyCulture",
-      platform: "Instagram",
-      draft_date: new Date(yesterday.getTime() - 86400000), // 1 day before
-      scheduled_date: yesterday,
-      scheduled_time: new Date(yesterday.setHours(9, 0, 0, 0)), // 9:00 AM
-      status: "published" // Since it's in the past
-    },
-    { 
-      id: 102, 
-      title: "New feature announcement coming soon!", 
-      content: "We're excited to announce a major update to our platform. Stay tuned! 🚀 #ProductUpdate",
-      platform: "Twitter",
-      draft_date: new Date(today.getTime() - 3600000), // 1 hour before
-      scheduled_date: today,
-      scheduled_time: todayTime, // 2:00 PM
-      status: "scheduled" // Future time today
-    },
-    {
-      id: 103,
-      title: "What's new in the latest version of our app",
-      content: "Check out the latest updates and improvements to our app! #AppUpdate #ProductAnnouncement",
-      platform: "Facebook",
-      draft_date: new Date(today.getTime() + 3600000), // 1 hour after
-      scheduled_date: tomorrow,
-      scheduled_time: null,
-      status: "draft" // Future time today
-    }
-  ];
-};
-
 export default function Schedule() {
   const navigate = useNavigate();
+  const { posts: initialPosts } = useLoaderData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
-  const posts = getTestPosts();
 
   // Get posts for a specific date
   const getPostsForDate = (dayNumber) => {
     if (!dayNumber) return [];
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNumber);
-    return posts.filter(post => {
-      const postDate = new Date(post.scheduled_date);
+    return initialPosts.filter(post => {
+      const postDate = new Date(post.draftDate || post.scheduledDate || post.publishedDate);
       return postDate.getDate() === date.getDate() &&
              postDate.getMonth() === date.getMonth() &&
              postDate.getFullYear() === date.getFullYear();
     });
   };
 
-  // Handle date selection
   const handleDateClick = (dayNumber) => {
     if (!dayNumber) return;
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNumber);
     setSelectedDate(date);
-    // Navigate to create post with the selected date
-    navigate(`/create?date=${date.toISOString()}`);
+    navigate(`/schedule?date=${date.toISOString()}`);
   };
 
-  // Handle post selection
-  const handlePostClick = (post, dayNumber) => {
-    // Show post details
-    let date;
-    if (post.scheduled_date) {
-      date = new Date(post.scheduled_date);
-    } else {
-      // For draft posts, use the calendar day date
-      date = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNumber);
-    }
-    setSelectedDate(date);
-    setCurrentDate(date);
+  const handleMonthChange = (months) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + months);
+    setCurrentDate(newDate);
   };
 
-  // Handle month navigation
-  const handleMonthChange = (delta) => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + delta));
-  };
-
-  // Handle today button click
   const handleTodayClick = () => {
-    const today = new Date();
-    setCurrentDate(today);
-    setSelectedDate(today);
+    setCurrentDate(new Date());
   };
 
-  // Check if a day is today
-  const isToday = (dayNumber) => {
-    if (!dayNumber) return false;
-    const today = new Date();
-    return dayNumber === today.getDate() &&
-           currentDate.getMonth() === today.getMonth() &&
-           currentDate.getFullYear() === today.getFullYear();
+  const handlePostClick = (post) => {
+    navigate(`/edit/${post.id}`);
   };
 
-  // Check if a day is selected
-  const isSelected = (dayNumber) => {
-    if (!dayNumber || !selectedDate) return false;
-    return dayNumber === selectedDate.getDate() &&
-           currentDate.getMonth() === selectedDate.getMonth() &&
-           currentDate.getFullYear() === selectedDate.getFullYear();
+  const handleCreatePost = () => {
+    if (selectedDate) {
+      navigate(`/create?date=${selectedDate.toISOString()}`);
+    } else {
+      navigate("/create");
+    }
   };
 
-  // Format month and year for display
   const formatMonthYear = (date) => {
-    return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
   };
 
-  // Filter posts based on status
-  const filteredPosts = posts.filter(post => {
-    if (filterStatus === "all") return true;
-    return post.status === filterStatus;
-  });
+  const isToday = (dayNumber) => {
+    const today = new Date();
+    return (
+      dayNumber === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const isSelected = (dayNumber) => {
+    if (!selectedDate) return false;
+    return (
+      dayNumber === selectedDate.getDate() &&
+      currentDate.getMonth() === selectedDate.getMonth() &&
+      currentDate.getFullYear() === selectedDate.getFullYear()
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -200,15 +171,10 @@ export default function Schedule() {
             <motion.div variants={itemVariants}>
               <CalendarDayDetailsCard
                 selectedDate={selectedDate}
-                posts={filteredPosts.filter(post => {
-                  const postDate = new Date(post.scheduled_date);
-                  return postDate.getDate() === selectedDate.getDate() &&
-                         postDate.getMonth() === selectedDate.getMonth() &&
-                         postDate.getFullYear() === selectedDate.getFullYear();
-                })}
+                posts={getPostsForDate(selectedDate.getDate())}
                 filterStatus={filterStatus}
                 onFilterChange={setFilterStatus}
-                onCreatePost={() => navigate(`/create?date=${selectedDate.toISOString()}`)}
+                onCreatePost={handleCreatePost}
                 onPostClick={handlePostClick}
               />
             </motion.div>
