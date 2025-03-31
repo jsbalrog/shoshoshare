@@ -1,12 +1,14 @@
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useNavigation } from "@remix-run/react";
-import { requireUserId } from "../services/auth.server";
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Label } from "../components/ui/label";
+import { requireUserId } from "../services/auth.server";
 import { db } from "../lib/db.server";
 import { uploadImage } from "../services/storage.server";
+import { searchPhotos } from "../services/pexels.server";
 
 function LoadingIndicator() {
   return (
@@ -52,7 +54,6 @@ UploadProgress.propTypes = {
 
 export async function action({ request }) {
   const { generateContent, moderateContent } = await import("../services/openai.server");
-  const { getRandomPhoto } = await import("../services/unsplash.server");
   const _userId = await requireUserId(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -67,7 +68,7 @@ export async function action({ request }) {
     try {
       // Generate content based on platform and prompt
       const content = await generateContent(
-        `Create a ${platform} post about: ${prompt}`
+        `Create a ${platform} post about: ${prompt}. ${shouldGenerateImage ? 'Include an image description in the format [Image: description]' : ''}`
       );
       console.log("Generated content:", content);
 
@@ -77,7 +78,7 @@ export async function action({ request }) {
         return json({ error: "Generated content was flagged as inappropriate" });
       }
 
-      let imageUrl = null;
+      let images = [];
       let cleanedContent = content;
 
       if (shouldGenerateImage) {
@@ -94,24 +95,35 @@ export async function action({ request }) {
             cleanedContent = content.replace(/\[Image: .*?\]/, "").trim();
             console.log("Cleaned content:", cleanedContent);
             
-            // Get a random photo from Unsplash based on the image description
-            console.log("Fetching photo from Unsplash for:", imageDescription);
-            const photo = await getRandomPhoto(imageDescription);
-            console.log("Received photo from Unsplash:", photo);
-            imageUrl = photo.url;
-            console.log("Final image URL:", imageUrl);
+            // Get multiple photos from Pexels based on the image description
+            console.log("Fetching photos from Pexels for:", imageDescription);
+            const photos = await searchPhotos(imageDescription, 10);
+            console.log("Received photos from Pexels:", photos);
+            
+            if (photos && photos.length > 0) {
+              images = photos;
+              console.log("Final images array:", images);
+            } else {
+              console.error("No photos in response:", photos);
+              throw new Error("Invalid photo response from Pexels");
+            }
           } else {
             console.log("No image description found in content");
+            return json({ 
+              content: cleanedContent, 
+              error: "No image description found in generated content. Please try generating again.",
+              errorType: "image"
+            });
           }
           
-          const response = { content: cleanedContent, imageUrl };
+          const response = { content: cleanedContent, images };
           console.log("Returning response:", response);
           return json(response);
         } catch (photoError) {
-          console.error("Error fetching photo:", photoError);
+          console.error("Error fetching photos:", photoError);
           return json({ 
             content: cleanedContent, 
-            error: "Failed to fetch image. Please try again.",
+            error: "Failed to fetch images. Please try again.",
             errorType: "image"
           });
         }
@@ -182,18 +194,26 @@ export default function CreatePost() {
   const navigation = useNavigation();
   const [generatedContent, setGeneratedContent] = useState("");
   const [currentImageUrl, setCurrentImageUrl] = useState("");
+  const [selectedImageUrl, setSelectedImageUrl] = useState("");
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const isGenerating = navigation.state === "submitting" && navigation.formData.get("intent") === "generate";
-  const isSaving = navigation.state === "submitting" && navigation.formData.get("intent") === "save";
+  const [selectedPlatform, setSelectedPlatform] = useState("");
+  const [availableImages, setAvailableImages] = useState([]);
+  const isGenerating = navigation.state === "submitting" && navigation.formData?.get("intent") === "generate";
+  const isSaving = navigation.state === "submitting" && navigation.formData?.get("intent") === "save";
 
-  // Update currentImageUrl when actionData changes
+  // Update currentImageUrl and availableImages when actionData changes
   useEffect(() => {
     console.log("Action data changed:", actionData);
     if (actionData?.imageUrl) {
       console.log("Setting new image URL:", actionData.imageUrl);
       setCurrentImageUrl(actionData.imageUrl);
+      setSelectedImageUrl(actionData.imageUrl);
     }
-  }, [actionData?.imageUrl]);
+    if (actionData?.images) {
+      console.log("Setting available images:", actionData.images);
+      setAvailableImages(actionData.images);
+    }
+  }, [actionData?.imageUrl, actionData?.images]);
 
   // Update generatedContent when actionData.content changes
   useEffect(() => {
@@ -238,6 +258,8 @@ export default function CreatePost() {
                 id="platform"
                 name="platform"
                 required
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value)}
                 className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select a platform</option>
@@ -377,9 +399,9 @@ export default function CreatePost() {
                   alt="Generated content"
                   className="mt-2 rounded-lg max-w-full h-auto"
                 />
-                <input type="hidden" name="imageUrl" value={currentImageUrl} />
+                <input type="hidden" name="imageUrl" value={selectedImageUrl} />
                 <input type="hidden" name="content" value={generatedContent} />
-                <input type="hidden" name="platform" value={navigation.formData.get("platform")} />
+                <input type="hidden" name="platform" value={selectedPlatform} />
                 <Button
                   type="submit"
                   name="intent"
@@ -388,8 +410,39 @@ export default function CreatePost() {
                   className="mt-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
                   disabled={isGenerating}
                 >
-                  {isGenerating ? "Generating..." : "Generate a different image"}
+                  {isGenerating ? "Generating..." : "Generate different images"}
                 </Button>
+              </div>
+            )}
+
+            {availableImages.length > 0 && (
+              <div className="mt-4">
+                <Label htmlFor="image-grid">Select an image</Label>
+                <div id="image-grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-2">
+                  {availableImages.map((image, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={`relative w-full rounded-lg overflow-hidden border-2 transition-all ${
+                        selectedImageUrl === image.url
+                          ? "border-blue-500 dark:border-blue-400"
+                          : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                      }`}
+                      onClick={() => setSelectedImageUrl(image.url)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          setSelectedImageUrl(image.url);
+                        }
+                      }}
+                    >
+                      <img
+                        src={image.url}
+                        alt={`Option ${index + 1}`}
+                        className="w-full h-32 object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
