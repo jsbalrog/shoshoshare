@@ -51,7 +51,8 @@ UploadProgress.propTypes = {
 };
 
 export async function action({ request }) {
-  const { generateContent, generateImage, moderateContent } = await import("../services/openai.server");
+  const { generateContent, moderateContent } = await import("../services/openai.server");
+  const { getRandomPhoto } = await import("../services/unsplash.server");
   const _userId = await requireUserId(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -61,11 +62,14 @@ export async function action({ request }) {
     const platform = formData.get("platform");
     const shouldGenerateImage = formData.get("generateImage") === "true";
 
+    console.log("Generate intent received:", { prompt, platform, shouldGenerateImage });
+
     try {
       // Generate content based on platform and prompt
       const content = await generateContent(
         `Create a ${platform} post about: ${prompt}`
       );
+      console.log("Generated content:", content);
 
       // Moderate the content
       const moderation = await moderateContent(content);
@@ -74,22 +78,48 @@ export async function action({ request }) {
       }
 
       let imageUrl = null;
+      let cleanedContent = content;
+
       if (shouldGenerateImage) {
-        // Extract image prompt from content if it exists
-        const imageMatch = content.match(/\[image: (.*?)\]/);
-        const imagePrompt = imageMatch ? imageMatch[1] : prompt;
-        
-        // Remove the [image: ...] part from content
-        const cleanContent = content.replace(/\[image: .*?\]/, "").trim();
-        
-        // Generate image
-        imageUrl = await generateImage(imagePrompt);
-        
-        return json({ content: cleanContent, imageUrl });
+        try {
+          // Extract image description from content if it exists
+          const imageMatch = content.match(/\[Image: (.*?)\]/);
+          console.log("Image match result:", imageMatch);
+          
+          if (imageMatch) {
+            const imageDescription = imageMatch[1];
+            console.log("Extracted image description:", imageDescription);
+            
+            // Remove the [Image: ...] part from content
+            cleanedContent = content.replace(/\[Image: .*?\]/, "").trim();
+            console.log("Cleaned content:", cleanedContent);
+            
+            // Get a random photo from Unsplash based on the image description
+            console.log("Fetching photo from Unsplash for:", imageDescription);
+            const photo = await getRandomPhoto(imageDescription);
+            console.log("Received photo from Unsplash:", photo);
+            imageUrl = photo.url;
+            console.log("Final image URL:", imageUrl);
+          } else {
+            console.log("No image description found in content");
+          }
+          
+          const response = { content: cleanedContent, imageUrl };
+          console.log("Returning response:", response);
+          return json(response);
+        } catch (photoError) {
+          console.error("Error fetching photo:", photoError);
+          return json({ 
+            content: cleanedContent, 
+            error: "Failed to fetch image. Please try again.",
+            errorType: "image"
+          });
+        }
       }
 
-      return json({ content });
+      return json({ content: cleanedContent });
     } catch (error) {
+      console.error("Error in generate action:", error);
       return json({ error: error.message });
     }
   }
@@ -120,7 +150,7 @@ export async function action({ request }) {
         }
       }
 
-      const post = await db.post.create({
+      await db.post.create({
         data: {
           title,
           content,
@@ -158,7 +188,9 @@ export default function CreatePost() {
 
   // Update currentImageUrl when actionData changes
   useEffect(() => {
+    console.log("Action data changed:", actionData);
     if (actionData?.imageUrl) {
+      console.log("Setting new image URL:", actionData.imageUrl);
       setCurrentImageUrl(actionData.imageUrl);
     }
   }, [actionData?.imageUrl]);
@@ -346,6 +378,8 @@ export default function CreatePost() {
                   className="mt-2 rounded-lg max-w-full h-auto"
                 />
                 <input type="hidden" name="imageUrl" value={currentImageUrl} />
+                <input type="hidden" name="content" value={generatedContent} />
+                <input type="hidden" name="platform" value={navigation.formData.get("platform")} />
                 <Button
                   type="submit"
                   name="intent"

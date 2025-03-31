@@ -37,12 +37,18 @@ export async function generateContent(prompt, options = {}) {
 
 export async function generateImage(prompt, options = {}) {
   try {
+    // Enhance the prompt for photorealistic results
+    const enhancedPrompt = `Create a photorealistic, high-quality image: ${prompt}. 
+      The image should be professional, well-lit, and suitable for social media. 
+      Avoid any cartoonish or artificial elements.`;
+
     const response = await openai.images.generate({
       model: "dall-e-3",
-      prompt,
+      prompt: enhancedPrompt,
       n: 1,
       size: "1024x1024",
       quality: "standard",
+      style: "natural", // This helps with photorealistic results
       ...options,
     });
 
