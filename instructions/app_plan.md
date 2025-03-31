@@ -213,8 +213,6 @@ Build a SaaS platform enabling small-to-medium businesses and solo entrepreneurs
 
   d. Test AI content generation and image generation.
 
-  d. Implement Scheduler with calendar view.
-
   e. Develop Analytics Dashboard (engagement metrics visualization).
 
 

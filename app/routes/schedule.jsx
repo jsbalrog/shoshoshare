@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { CalendarCard } from "../components/calendar/CalendarCard";
 import { CalendarDayDetailsCard } from "../components/calendar/CalendarDayDetailsCard";
 import { LegendCard } from "../components/calendar/LegendCard";
-import { getUserByEmail } from "../lib/models.server";
+import { requireUserId } from "../services/auth.server";
 import { db } from "../lib/db.server";
 
 export const meta = () => {
@@ -15,16 +15,14 @@ export const meta = () => {
   ];
 };
 
-export async function loader() {
-  // Temporarily use the first user until we implement authentication
-  const user = await getUserByEmail("test@example.com");
-  console.log("Found user:", user);
+export async function loader({ request }) {
+  const userId = await requireUserId(request);
   
   let posts = [];
-  if (user) {
+  if (userId) {
     // Get all posts for the user
     posts = await db.post.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: {
         user: true,
         engagements: true
@@ -33,7 +31,6 @@ export async function loader() {
         scheduledDate: 'asc'
       }
     });
-    console.log("Found posts:", posts);
   }
 
   return { posts };

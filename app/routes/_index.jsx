@@ -1,5 +1,8 @@
 import { Link } from "@remix-run/react";
 import { motion } from "framer-motion";
+import { requireUserId } from "../services/auth.server";
+import { db } from "../lib/db.server";
+import { useLoaderData } from "@remix-run/react";
 
 export const meta = () => {
   return [
@@ -7,6 +10,38 @@ export const meta = () => {
     { name: "description", content: "Your social media management dashboard" },
   ];
 };
+
+export async function loader({ request }) {
+  const userId = await requireUserId(request);
+  
+  // Get all posts for the user
+  const posts = await db.post.findMany({
+    where: { userId },
+    include: {
+      engagements: true
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+
+  // Calculate statistics
+  const totalPosts = posts.length;
+  const scheduledPosts = posts.filter(post => post.status === "SCHEDULED").length;
+  const publishedPosts = posts.filter(post => post.status === "PUBLISHED").length;
+  const draftPosts = posts.filter(post => post.status === "DRAFT").length;
+
+  // Get recent posts (last 5)
+  const recentPosts = posts.slice(0, 5);
+
+  return { 
+    totalPosts,
+    scheduledPosts,
+    publishedPosts,
+    draftPosts,
+    recentPosts
+  };
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,6 +65,8 @@ const itemVariants = {
 };
 
 export default function Dashboard() {
+  const { totalPosts, scheduledPosts, publishedPosts, draftPosts, recentPosts } = useLoaderData();
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -41,7 +78,7 @@ export default function Dashboard() {
           suppressHydrationWarning
         >
           {/* Quick Stats */}
-          <motion.div variants={itemVariants} className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <motion.div variants={itemVariants} className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
@@ -53,7 +90,7 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Posts</dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">0</dd>
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">{totalPosts}</dd>
                     </dl>
                   </div>
                 </div>
@@ -71,7 +108,7 @@ export default function Dashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Scheduled Posts</dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">0</dd>
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">{scheduledPosts}</dd>
                     </dl>
                   </div>
                 </div>
@@ -83,17 +120,84 @@ export default function Dashboard() {
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Views</dt>
-                      <dd className="text-lg font-medium text-gray-900 dark:text-white">0</dd>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Published Posts</dt>
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">{publishedPosts}</dd>
                     </dl>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Draft Posts</dt>
+                      <dd className="text-lg font-medium text-gray-900 dark:text-white">{draftPosts}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Recent Posts */}
+          <motion.div variants={itemVariants} className="bg-white dark:bg-gray-800 shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">Recent Posts</h3>
+              <div className="mt-5">
+                {recentPosts.length === 0 ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                    No posts yet. Create your first post!
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {recentPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              post.status === "SCHEDULED"
+                                ? "bg-blue-500"
+                                : post.status === "PUBLISHED"
+                                ? "bg-green-500"
+                                : "bg-yellow-500"
+                            }`}
+                          />
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-white">
+                              {post.title}
+                            </h4>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {post.platform} • {post.status.toLowerCase()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {post.status === "SCHEDULED"
+                            ? post.scheduledDate?.toLocaleDateString()
+                            : post.status === "PUBLISHED"
+                            ? post.publishedDate?.toLocaleDateString()
+                            : "Draft"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

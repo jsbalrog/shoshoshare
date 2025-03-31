@@ -26,6 +26,7 @@ model Post {
   title          String
   content        String
   platform       String
+  imageUrl       String?
   status         PostStatus  @default(DRAFT)
   draftDate      DateTime?
   draftTime      DateTime?
